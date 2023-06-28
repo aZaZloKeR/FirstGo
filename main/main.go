@@ -1,17 +1,14 @@
 package main
 
 import (
-	"awesomeProject/mq"
-	"context"
+	"awesomeProject/util/file"
+	"awesomeProject/util/mq"
 	"fmt"
 )
 
 func main() {
-	ctx := context.Background()
-	ch := make(chan int)
-	go mq.CreateConnection(ch)
+	mq.SendMess("Hello, Its my first message from go!", file.GetConf("test_queue"))
 
-	mq.SendMess("Hello, Its my first message from go!", &ctx)
-
-	fmt.Println("finish")
+	a := mq.ReadMess(file.GetConf("test_queue"))
+	fmt.Println("get message: ", a)
 }
