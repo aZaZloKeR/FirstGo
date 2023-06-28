@@ -1,21 +1,21 @@
 package mq
 
 import (
+	"awesomeProject/util"
+	"awesomeProject/util/syncer"
 	"context"
 	"log"
-	"time"
 
 	rabbit "github.com/rabbitmq/amqp091-go"
 )
 
-func SendMess(body string, qname string) {
+func SendMess(ctx context.Context, body string, qname string) {
+	syncer.SetAlive()
+	defer syncer.SetCompleted()
 	conn := createConnection()
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer conn.Close()
 
-	q, ch, ctx, cancel := createQueue(qname, conn)
-	defer cancel()
+	q, ch := createQueue(qname, conn)
 
 	err := ch.PublishWithContext(ctx,
 		"",
@@ -31,46 +31,51 @@ func SendMess(body string, qname string) {
 	log.Printf("Sent %s\n", body)
 }
 
-func ReadMess(qname string, c chan string) {
-	conn := createConnection()
-	defer func() {
-		_ = conn.Close()
+func ReadMess(ctx context.Context, qname string) chan string {
+	c := make(chan string)
+	go func() {
+		defer close(c)
+		syncer.SetAlive()
+		defer syncer.SetCompleted()
+		conn := createConnection()
+		defer conn.Close()
+
+		q, ch := createQueue(qname, conn)
+
+		msgs, err := ch.Consume(
+			q.Name, // queue
+			"",     // consumer
+			true,   // auto-ack
+			false,  // exclusive
+			false,  // no-local
+			false,  // no-wait
+			rabbit.Table{"x-dead-letter-exchange": "",
+				"x-dead-letter-routing-key": "TEST.GO.DLQ"}, // args
+		)
+		failOnError(err, "Failed to register a consumer")
+		for true {
+			select {
+			case d := <-msgs:
+				log.Printf("Received a message: %s", d.Body)
+				util.SendWithoutBlock(string(d.Body), c)
+			case <-ctx.Done():
+				return
+			}
+		}
 	}()
-
-	q, ch, _, cancel := createQueue(qname, conn)
-	defer cancel()
-
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		rabbit.Table{"x-dead-letter-exchange": "",
-			"x-dead-letter-routing-key": "TEST.GO.DLQ"}, // args
-	)
-	failOnError(err, "Failed to register a consumer")
-
-	for d := range msgs {
-		log.Printf("Received a message: %s", d.Body)
-		c <- string(d.Body)
-	}
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	return c
 }
 
 func createConnection() *rabbit.Connection {
+	//DON'T DO IT ((
 	conn, err := rabbit.Dial("amqp://admin:admin@amqp.rt.sm-soft.ru:5672/")
 	failOnError(err, "unable to open connect to RabbitMQ server. Error: %s")
 
 	return conn
 }
 
-func createQueue(qname string, conn *rabbit.Connection) (rabbit.Queue, *rabbit.Channel, context.Context, context.CancelFunc) {
+func createQueue(qname string, conn *rabbit.Connection) (rabbit.Queue, *rabbit.Channel) {
 	ch, err := conn.Channel()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
 	q, err := ch.QueueDeclare(
 		qname,
 		true,
@@ -81,7 +86,7 @@ func createQueue(qname string, conn *rabbit.Connection) (rabbit.Queue, *rabbit.C
 			"x-dead-letter-routing-key": "TEST.GO.DLQ"},
 	)
 	failOnError(err, "failed to declare a queue. Error: %s")
-	return q, ch, ctx, cancel
+	return q, ch
 }
 
 func failOnError(err error, msg string) {

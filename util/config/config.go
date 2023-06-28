@@ -1,4 +1,4 @@
-package file
+package config
 
 import (
 	"encoding/json"
@@ -22,12 +22,12 @@ func init() {
 	}
 	f, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Fatalf("Can't read config from %v , reson: %e", configPath, err)
+		log.Fatalf("Can't read config from %v, reson: %v", configPath, err.Error())
 	}
 	json.Unmarshal(f, config)
 }
 
 // Если не хочешь чтоб кто-то случайно менял конфиг, то можно обернуть его в Гет функции, но обычно это не требуется
-func GetConf() *Configuration {
+func Get() *Configuration {
 	return config
 }
