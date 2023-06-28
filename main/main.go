@@ -1,14 +1,18 @@
 package main
 
 import (
+	"awesomeProject/main/listener"
 	"awesomeProject/util/file"
 	"awesomeProject/util/mq"
 	"fmt"
+	"time"
 )
 
 func main() {
-	mq.SendMess("Hello, Its my first message from go!", file.GetConf("test_queue"))
+	go mq.SendMess("Hello, Its my first message from go!", file.GetConf("test_queue"))
 
-	a := mq.ReadMess(file.GetConf("test_queue"))
-	fmt.Println("get message: ", a)
+	go listener.ListenTestQueue()
+	time.Sleep(2 * time.Minute)
+	fmt.Println("finish:")
+
 }

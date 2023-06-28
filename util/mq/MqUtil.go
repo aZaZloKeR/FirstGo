@@ -30,7 +30,7 @@ func SendMess(body string, qname string) {
 	log.Printf("Sent %s\n", body)
 }
 
-func ReadMess(qname string) string {
+func ReadMess(qname string, c chan string) {
 	conn := createConnection()
 	defer func() {
 		_ = conn.Close()
@@ -53,10 +53,9 @@ func ReadMess(qname string) string {
 
 	for d := range msgs {
 		log.Printf("Received a message: %s", d.Body)
-		return string(d.Body)
+		c <- string(d.Body)
 	}
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-	return ""
 }
 
 func createConnection() *rabbit.Connection {
