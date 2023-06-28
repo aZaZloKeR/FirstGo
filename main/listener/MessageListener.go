@@ -10,7 +10,7 @@ func ListenTestQueue() {
 	ch := make(chan string)
 	go func() {
 		for true {
-			mq.ReadMess(file.GetConf("test_queue"), ch)
+			mq.ReadMess(file.GetConf().TestQueue, ch)
 		}
 	}()
 	for true {

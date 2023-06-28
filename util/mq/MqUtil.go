@@ -2,9 +2,10 @@ package mq
 
 import (
 	"context"
-	rabbit "github.com/rabbitmq/amqp091-go"
 	"log"
 	"time"
+
+	rabbit "github.com/rabbitmq/amqp091-go"
 )
 
 func SendMess(body string, qname string) {
