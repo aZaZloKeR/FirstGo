@@ -2,19 +2,16 @@ package mq
 
 import (
 	"context"
-	rabbit "github.com/rabbitmq/amqp091-go"
 	"log"
-	"time"
+
+	rabbit "github.com/rabbitmq/amqp091-go"
 )
 
-func SendMess(body string, qname string) {
+func SendMess(body string, qname string, ctx context.Context) {
 	conn := createConnection()
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer conn.Close()
 
-	q, ch, ctx, cancel := createQueue(qname, conn)
-	defer cancel()
+	q, ch := createQueue(qname, conn)
 
 	err := ch.PublishWithContext(ctx,
 		"",
@@ -32,12 +29,9 @@ func SendMess(body string, qname string) {
 
 func ReadMess(qname string, c chan string) {
 	conn := createConnection()
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer conn.Close()
 
-	q, ch, _, cancel := createQueue(qname, conn)
-	defer cancel()
+	q, ch := createQueue(qname, conn)
 
 	msgs, err := ch.Consume(
 		q.Name, // queue
@@ -65,10 +59,8 @@ func createConnection() *rabbit.Connection {
 	return conn
 }
 
-func createQueue(qname string, conn *rabbit.Connection) (rabbit.Queue, *rabbit.Channel, context.Context, context.CancelFunc) {
+func createQueue(qname string, conn *rabbit.Connection) (rabbit.Queue, *rabbit.Channel) {
 	ch, err := conn.Channel()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
 	q, err := ch.QueueDeclare(
 		qname,
@@ -80,7 +72,7 @@ func createQueue(qname string, conn *rabbit.Connection) (rabbit.Queue, *rabbit.C
 			"x-dead-letter-routing-key": "TEST.GO.DLQ"},
 	)
 	failOnError(err, "failed to declare a queue. Error: %s")
-	return q, ch, ctx, cancel
+	return q, ch
 }
 
 func failOnError(err error, msg string) {

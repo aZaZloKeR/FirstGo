@@ -7,21 +7,26 @@ import (
 )
 
 type Configuration struct {
-	testQueue string
+	TestQueue string `json:"test_queue"`
 }
 
-func GetConf(name string) string {
-	f, err := os.ReadFile("conf.json")
-	if err != nil {
-		log.Println(err)
-	}
-	var data map[string]string
-	json.Unmarshal(f, &data)
+var config = &Configuration{}
 
-	for k, v := range data {
-		if k == name {
-			return v
-		}
+const defaultPath = "conf.json"
+
+func init() {
+	//path can be read from SYSTEM PATH
+	configPath := defaultPath
+	if envPath := os.Getenv("config"); envPath != "" {
+		configPath = envPath
 	}
-	return ""
+	f, err := os.ReadFile(configPath)
+	if err != nil {
+		log.Fatalf("Can't read config from %v , reson: %v", configPath, err.Error())
+	}
+	json.Unmarshal(f, config)
+}
+
+func GetConf() *Configuration {
+	return config
 }
